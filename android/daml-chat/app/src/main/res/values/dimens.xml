@@ -1,0 +1,7 @@
+<resources>
+    <dimen name="fab_margin">16dp</dimen>
+    <dimen name="chat_overview_padding">8dp</dimen>
+    <dimen name="chat_overview_title_vertical_padding">4dp</dimen>
+    <dimen name="chat_message_text_size">18sp</dimen>
+    <dimen name="chat_message_other_name_size">15sp</dimen>
+</resources>
