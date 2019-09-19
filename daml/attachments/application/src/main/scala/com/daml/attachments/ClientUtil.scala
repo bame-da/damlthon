@@ -12,9 +12,9 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -48,11 +48,26 @@ class ClientUtil(
     commandClient.submitSingleCommand(submitRequest(sender, workflowId, command))
   }
 
-  def submitCommandAndTrack[T](
+  def submitCommandAndWait[T](
                         sender: P.Party,
                         workflowId: WorkflowId,
-                        command: P.Update[T])(implicit mat: Materializer): Future[Completion] = {
-    commandClient.trackSingleCommand(submitRequest(sender, workflowId, command))
+                        command: P.Update[T])(implicit ec: ExecutionContext): Future[Transaction] = {
+    val now = timeProvider.getCurrentTime
+
+    client.commandServiceClient.submitAndWaitForTransaction(
+      SubmitAndWaitRequest(
+        Some(Commands(
+          ledgerId.unwrap,
+          workflowId.unwrap,
+          applicationId.unwrap,
+          uniqueId,
+          sender.unwrap,
+          Some(fromInstant(now)),
+           Some(fromInstant(now.plusNanos(ttl.toNanos))),
+          List(command.command)
+        )
+      )))
+    .map(_.getTransaction)
   }
 
 

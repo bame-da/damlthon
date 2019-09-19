@@ -1,10 +1,14 @@
 #!/bin/sh
 set -eu
 
-HASH=$(curl -s -F 'attachment=@file' localhost:8080/upload | jq -r .hash)
+echo "Uploading..."
+RES=$(curl -s -F 'attachment=@file;filename=file;observers=Bob' localhost:8080/uploadAndSubmit)
+HASH=$(cat $RES | jq -r .hash)
+CONTRACTID=$(cat $RES | jq -r .contract_id)
 EXPECTED="$(cat file.sha1)"
 
-echo "Uploading..."
+echo "Got contract id $CONTRACTID"
+
 if [ "$HASH" != "$EXPECTED" ]; then
   echo "Hash mismatch on upload: got $HASH, expected $EXPECTED"
   exit 1

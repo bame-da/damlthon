@@ -14,7 +14,7 @@ import scala.concurrent.Future
 /** Unmirrored files provides a stream of `File` contracts for files that are not yet mirrored
  * by the local party.
  */
-case class UnmirroredFiles(party: Party, offset0: LedgerOffset, clientUtil: ClientUtil, implicit val amat: Materializer) {
+case class UnmirroredFiles(party: Party, offset0: LedgerOffset, clientUtil: ClientUtil)(implicit val mat: Materializer) {
   //private val logger = LoggerFactory.getLogger(this.getClass)
 
   private def snapshot: Future[(LedgerOffset, Stream[Contract[M.File]])] =

@@ -17,7 +17,7 @@ import com.digitalasset.ledger.client.binding.Contract
 
 import scala.concurrent.Future
 
-case class ActiveProposals(party: Party, offset0: LedgerOffset, clientUtil: ClientUtil, implicit val amat: Materializer) {
+case class ActiveProposals(party: Party, offset0: LedgerOffset, clientUtil: ClientUtil)(implicit val amat: Materializer) {
   //private val logger = LoggerFactory.getLogger(this.getClass)
 
   // A stream of proposals from the snapshot.

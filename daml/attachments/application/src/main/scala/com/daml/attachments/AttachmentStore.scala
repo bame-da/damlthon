@@ -24,7 +24,7 @@ object AttachmentStore {
     attachments.get(hash)
 
   def attachmentHash(bytes: Array[Byte]): String = {
-    MessageDigest.getInstance("SHA")
+    MessageDigest.getInstance("SHA-256")
       .digest(bytes)
       .map(b => String.format("%02x", Byte.box(b)))
       .mkString("")

@@ -7,7 +7,7 @@ newtype URI = URI Text deriving (Eq, Show)
 data Encryption
   = EncNone
     -- ^ No encryption, the file is in plain text.
-  | EncAES256 Text
+  | EncAES256 with encKey: Text, iv: Text
     -- ^ 256-bit AES encryption, CBC mode, PKCS5 padding
   deriving (Eq, Show)
 
@@ -35,3 +35,7 @@ template File
   where
     signatory owner
     observer observers
+
+
+
+

@@ -24,56 +24,27 @@ import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 object AttachmentsMain extends App with StrictLogging {
-  if (args.length != 4) {
-    logger.error("Usage: LEDGER_HOST LEDGER_PORT SERVER_PORT PARTY")
-    logger.error("Setting environment variable EXTERNAL_IP will use it to construct urls")
-    logger.error("returned by /upload.")
+  if (System.getenv("LEDGER_HOST") == null) {
+    logger.error("Please set following environment variables:")
+    logger.error("LEDGER_HOST - Ledger server hostname")
+    logger.error("LEDGER_PORT - Ledger server port")
+    logger.error("SERVER_PORT - File server port")
+    logger.error("PARTY       - DAML party")
     System.exit(-1)
   }
 
-  private val ledgerHost = args(0)
-  private val ledgerPort = args(1).toInt
-  private val serverPort = args(2).toInt
-  private val party = P.Party(args(3))
+  private val applicationId = ApplicationId("AttachmentsBot")
+  private val setup = Setup(applicationId)
 
-  private val asys = ActorSystem()
-  private val amat =
-    ActorMaterializer(
-      ActorMaterializerSettings(asys)
-        .withSupervisionStrategy { e =>
-          logger.error(s"Supervision caught exception: $e")
-          Supervision.Stop
-        }
-    )(asys)
-
-  private val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
+  private val aesf = new AkkaExecutionSequencerPool("botClientPool")(setup.asys)
 
   private def shutdown(): Unit = {
     logger.info("Shutting down...")
-    Await.result(asys.terminate(), 10.seconds)
+    Await.result(setup.asys.terminate(), 10.seconds)
     ()
   }
 
-  private implicit val ec: ExecutionContext = asys.dispatcher
-
-  private val applicationId = ApplicationId("AttachmentsBot")
-
-  private val timeProvider = TimeProvider.Constant(Instant.EPOCH)
-
-  private val clientConfig = LedgerClientConfiguration(
-    applicationId = ApplicationId.unwrap(applicationId),
-    ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-    commandClient = CommandClientConfiguration.default,
-    sslContext = None
-  )
-
-  private val clientF: Future[LedgerClient] =
-    LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)
-
-  val clientUtilF: Future[ClientUtil] =
-    clientF.map(client => new ClientUtil(client, applicationId, 30.seconds, timeProvider))
-
-  private val acknowledgeWorkflowId: WorkflowId = ClientUtil.workflowIdFromParty(party)
+  private val acknowledgeWorkflowId: WorkflowId = ClientUtil.workflowIdFromParty(setup.party)
 
 
   private def download(expectedHash: String, locations: Seq[(Party, M.URL)]): Option[Array[Byte]] =
@@ -96,16 +67,18 @@ object AttachmentsMain extends App with StrictLogging {
       }
     }
 
-  private val fileMirrorWorkflowId: WorkflowId = ClientUtil.workflowIdFromParty(party)
+  private val fileMirrorWorkflowId: WorkflowId = ClientUtil.workflowIdFromParty(setup.party)
+
+  implicit val ec: ExecutionContext = setup.ec
 
   val fileMirrorFlow: Future[Unit] = for {
-    clientUtil <- clientUtilF
-    _ <- UnmirroredFiles(party, LedgerOffset().withBoundary(LedgerBoundary.LEDGER_BEGIN), clientUtil, amat)
+    clientUtil <- setup.clientUtilF
+    _ <- UnmirroredFiles(setup.party, LedgerOffset().withBoundary(LedgerBoundary.LEDGER_BEGIN), clientUtil)(setup.mat)
         .files
         .runForeach { contract: Contract[model.File.File] =>
           val file = contract.value
           val hash = file.hash.unpack
-          if (file.owner == party) {
+          if (file.owner == setup.party) {
             logger.info(s"ignoring since we're the owner")
           } else {
             logger.info(s"New file $hash, trying to mirror it from party ${file.owner}...")
@@ -123,13 +96,13 @@ object AttachmentsMain extends App with StrictLogging {
                   val observers = contract.value.observers.toSet
                   val createCmd =
                     contract.value.copy(
-                      owner = party,
-                      observers = (observers - party + contract.value.owner).toList,
-                      uri = model.File.URI(AttachmentsServlet.attachmentUrl(serverPort, hash))
+                      owner = setup.party,
+                      observers = (observers - setup.party + contract.value.owner).toList,
+                      uri = model.File.URI(AttachmentsServlet.attachmentUrl(setup.serverPort, hash))
                     ).create
 
                   clientUtil.submitCommand(
-                    party,
+                    setup.party,
                     fileMirrorWorkflowId,
                     createCmd
                   ) onComplete {
@@ -143,17 +116,17 @@ object AttachmentsMain extends App with StrictLogging {
                 }
             }
           }
-        }(amat)
+        }(setup.mat)
   }  yield ()
 
   val acknowledgeFlow: Future[Unit] = for {
-    clientUtil <- clientUtilF
+    clientUtil <- setup.clientUtilF
 
-    _ <- ActiveProposals(party, LedgerOffset().withBoundary(LedgerBoundary.LEDGER_BEGIN), clientUtil, amat)
+    _ <- ActiveProposals(setup.party, LedgerOffset().withBoundary(LedgerBoundary.LEDGER_BEGIN), clientUtil)(setup.mat)
       .proposals
       .runForeach { contract: Contract[M.AttachmentProposal] =>
         val proposal = contract.value
-        if (proposal.receiver != party) {
+        if (proposal.receiver != setup.party) {
           logger.info(s"ignoring contract since we're not the receiver")
         } else {
           logger.info("we're the proposal receiver. fetching the attachment.")
@@ -168,12 +141,12 @@ object AttachmentsMain extends App with StrictLogging {
 
               val exerciseCmd =
                 contract.contractId.exerciseAcknowledge(
-                  actor = party,
-                  newLocation = M.URL(s"http://localhost:$serverPort/attachments/${proposal.hash.unpack}")
+                  actor = setup.party,
+                  newLocation = M.URL(s"http://localhost:${setup.serverPort}/attachments/${proposal.hash.unpack}")
                 )
 
               clientUtil.submitCommand(
-                party,
+                setup.party,
                 acknowledgeWorkflowId,
                 exerciseCmd
               ) onComplete {
@@ -186,7 +159,7 @@ object AttachmentsMain extends App with StrictLogging {
               }
           }
         }
-      }(amat)
+      }(setup.mat)
   }  yield {
     logger.info("acknowledgeFlow ended!")
     ()
@@ -200,7 +173,7 @@ object AttachmentsMain extends App with StrictLogging {
       var ok = false
       while (!ok && retries > 0) {
         try {
-          AttachmentsClient.roundtripTest("localhost", serverPort, Array(1, 2, 3, 4))
+          AttachmentsClient.roundtripTest("localhost", setup.serverPort, Array(1, 2, 3, 4))
           logger.info("Sanity check OK!")
           ok = true
         } catch {
@@ -220,7 +193,7 @@ object AttachmentsMain extends App with StrictLogging {
 
   val serverThread = new Thread {
     override def run(): Unit =
-      JettyLauncher.launch(serverPort)
+      JettyLauncher.launch(setup.serverPort)
   }
   serverThread.start()
 
