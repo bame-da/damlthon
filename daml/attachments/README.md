@@ -12,14 +12,18 @@ $ sbt 'application / assembly'
 
 To run:
 
-$ export EXTERNAL_IP=1.2.3.4
-$ java -jar application/target/scala-2.12/application.jar ledger-host 6865 8080 Alice
-$ java -jar application/target/scala-2.12/application.jar ledger-host 6865 8081 Bob
-$ java -jar application/target/scala-2.12/application.jar ledger-host 6865 8082 Charlie
+$ export EXTERNAL_IP=1.2.3.4 # this is optional, affects url generation
+$ export LEDGER_HOST=localhost
+$ export LEDGER_PORT=6865
+$ export SERVER_PORT=8080
+$ export PARTY=Alice
+$ java -jar application/target/scala-2.12/application.jar &
+$ export SERVER_PORT=8081
+$ export PARTY=Bob
+$ java -jar application/target/scala-2.12/application.jar
+...
 
-Upload the file to the server and get the URL:
+Upload the file to the server and get the contract id, urls etc:
 
-$ curl -s -F 'attachment=@myfile' localhost:8080/upload
-
-Now create the AttachmentProposal contract with the url and hash.
+$ curl -v -F 'attachment=@lapland.jpg' -F 'filename=lapland.jpg' -F 'observers=Bob,Charlie' localhost:8080/uploadAndSubmit  | jq .
 
