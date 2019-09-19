@@ -1,0 +1,410 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+daml 1.2
+
+-- DAML chat-room model, with support for multiple chat-groups with entry by invitation.
+
+module GroupChat where
+
+import DA.Action as A
+import DA.Date
+import DA.Time
+import DA.Next.Set as S
+import DA.Next.Map as M
+import DA.Traversable as T
+
+-- | GID is a contract key for a `ChatGroup`. GID = Group ID
+data GID = GID with
+  id : Text -- ^ A text identifier for the group
+  members : Set Party -- ^ The current members of the group
+    deriving (Eq, Show)
+
+-- | MID is a contract key for a `Message`. MID = Message ID
+data MID = MID with
+  gid : GID -- ^ Foreign key to the group
+  poster : Party -- ^ The (potentially former) group member that posted the message
+  id : Text -- ^ A text identifier of the message. E.g. sequence number or UUID
+    deriving (Eq, Show)
+
+-- | A template for a message.
+template Message
+  with
+    mid : MID -- ^ Identifier of the message
+    postedAt : Time -- ^ Ledger Effective Time the message was posted
+    text : Text -- ^ Message Body
+  where
+    signatory mid.gid.members
+
+    -- Updates to the group id need to be threaded through to enfore the
+    -- foreign key constraint.
+    choice M_ChangeGID
+      : ContractId Message
+      with
+        newGid : GID
+      controller mid.gid.members, newGid.members
+      do
+        create this with
+          mid = mid with
+            gid = newGid
+
+-- | `MessageIndex` keeps track of all messages posted by a single
+-- group member. This allows us to thread through GID changes, but doesn't
+-- make the posting of messages between different group members racy, as it
+-- would be if we kept one global index on `ChatGroup`.
+template MessageIndex
+  with
+    gid : GID
+    poster : Party
+    messages : Map Text (ContractId Message)
+  where
+    signatory gid.members
+
+    -- Messages must be posted through this choice
+    -- in order to maintain the index.
+    controller gid.members, poster can
+      MI_Message
+        : (ContractId Message, ContractId MessageIndex)
+        with
+          id : Text
+          text : Text
+        do
+          -- Ensure uniqueness
+          assertMsg "Message ID already exists"
+            (not (id `M.member` messages))
+          now <- getTime
+          msg <- create Message with
+            mid = MID with
+              gid
+              poster
+              id
+            postedAt = now
+            text
+          mi <- create this with
+            messages = M.insert id msg messages
+          return (msg, mi)
+
+    -- Changes to the GID are passed on to messages through this choice.
+    choice MI_ChangeGID
+      : ContractId MessageIndex
+      with
+        newGid : GID
+      controller gid.members, newGid.members
+      do
+        newMessages <- T.forA messages (\cid -> exercise cid M_ChangeGID with newGid)
+        create this with 
+          gid = newGid
+          messages = newMessages
+
+    -- Method used to tidy up when a group is closed.
+    controller gid.members can
+      ArchiveIndex
+        : ()
+        do
+          T.forA messages archive
+          return ()
+
+-- | Template for a chat group. A new group can be started by anyone by creating
+-- an instance of `ChatGroup`.
+template ChatGroup
+  with
+    gid : GID
+    pastMembers : Set Party
+  where
+    signatory gid.members
+
+    let
+      allMembers = gid.members `S.union` pastMembers
+      checkAndProcessIndices (messageIndexCids : [ContractId MessageIndex]) = do
+        indexPosters <- T.forA messageIndexCids (\micid -> do
+          mi <- fetch micid
+          return (mi.poster, micid)
+          )
+        let indexedMembers = S.fromList (map fst indexPosters)
+        assertMsg "Missing indices" ((allMembers `difference` indexedMembers) == S.empty)
+        return (M.fromList indexPosters)
+
+    -- An internal choice that allows the GID (ie group ID or members) to be changed
+    choice ChangeGID
+      : (ContractId ChatGroup, [ContractId MessageIndex])
+      with
+        newGid : GID
+        messageIndexCids : [ContractId MessageIndex]
+      controller gid.members, newGid.members
+      do
+        messageIndices <- checkAndProcessIndices messageIndexCids
+        micids <- T.forA messageIndices (\micid -> exercise micid MI_ChangeGID with newGid)
+        g <- create this with
+            gid = newGid
+        return (g, map snd (M.toList micids))
+
+    -- Any existing member can add a new member
+    nonconsuming choice AddMember
+      : (ContractId ChatGroup, [ContractId MessageIndex])
+      with
+        member : Party
+        newMember : Party
+        messageIndexCids : [ContractId MessageIndex]
+      controller member, newMember
+      do
+        assertMsg "Only members can add new members" (member `S.member` gid.members)
+        assertMsg "New member is already a member" (not (newMember `S.member` gid.members))
+        let newGid = gid with members = S.insert newMember gid.members
+        (g, micids) <- exercise self ChangeGID with ..
+        newMiCids <- if newMember `S.member` pastMembers
+          then return micids
+          else do
+            mi <- create MessageIndex with
+              gid
+              poster = newMember
+              messages = M.empty
+            return (mi :: micids)
+        return (g, newMiCids)
+
+    -- Messages are posted though this choice, which makes sure indices are updated.
+    nonconsuming choice Post_Message
+      : (ContractId Message, ContractId MessageIndex)
+      with
+        poster : Party
+        micid : ContractId MessageIndex
+        id : Text
+        text : Text
+      controller poster
+      do
+        exercise micid MI_Message with ..
+
+    -- Members can leave at any time using this choice. Note that this will
+    -- fail for the last member. They have to call `ArchiveGroup` instead.
+    choice LeaveGroup
+      : (ContractId ChatGroup, [ContractId MessageIndex])
+      with
+        member : Party
+        messageIndexCids : [ContractId MessageIndex]
+      controller member
+      do
+        assertMsg "Only members can leave the group" (member `S.member` gid.members)
+        let newGid = gid with members = S.delete member gid.members
+        newGroup <- create this with
+          pastMembers = S.insert member pastMembers
+        exercise newGroup ChangeGID with ..
+
+    controller gid.members can
+      -- The members can shut down a gruop, archiving the group as well
+      -- as assocuated indices and messages.
+      ArchiveGroup 
+        : ()
+        with
+          messageIndexCids : [ContractId MessageIndex]
+        do
+          T.forA messageIndexCids (\micid -> exercise micid ArchiveIndex)
+          return ()
+
+-- | Groups are joined by requesting access. Discovery is done off-ledger
+-- Ie one party has to tell another about the existence of a group.
+-- It would be easy to add an invitation contract, but note that the current
+-- member has to be the one interpreting the transaction adding a member.
+-- The new member does not know the `ChatGroup`, `MessageIndex` and `Message`
+-- contracts they need to update.
+template GroupMembershipRequest
+  with
+    groupId : Text
+    member : Party
+    newMember : Party
+  where
+    signatory newMember
+
+    controller member can
+      Onboard
+        : (ContractId ChatGroup, [ContractId MessageIndex])
+        with
+          groupCid : ContractId ChatGroup
+          messageIndexCids : [ContractId MessageIndex]
+        do
+          group <- fetch groupCid
+          assert (group.gid.id == groupId)
+          exercise groupCid AddMember with ..
+
+template GroupSetup
+  with
+    id : Text
+    creator : Party
+  where
+    signatory creator
+
+    controller creator can
+      CreateGroup
+        : (ContractId ChatGroup, ContractId MessageIndex)
+        do
+          let gid = GID with
+                id
+                members = S.singleton creator
+          mi <- create MessageIndex with
+            gid
+            poster = creator
+            messages = M.empty
+          g <- create ChatGroup with
+            gid
+            pastMembers = S.empty
+          return (g, mi)
+
+setup_chat = scenario do
+  parties@[alice, bob, charlie] <- A.mapA getParty ["Alice", "Bob", "Charlie"]
+  passToDate (date 2019 Jul 01)
+
+  -- A "createAndExercise" via the API
+  (g, mia) <- submit alice do
+    s <- create GroupSetup with
+      id = "troll-bot"
+      creator = alice
+    exercise s CreateGroup
+
+  return (parties, g, mia)
+
+first_post = scenario do
+  s@(parties@[alice, bob, charlie], g, mia) <- setup_chat
+
+  (_, mia) <- submit alice do
+    exercise g Post_Message with
+      poster = alice
+      micid = mia
+      id = "1"
+      text = "first post"
+
+  return (parties, g, mia)
+
+onboard_bob = scenario do
+  s@(parties@[alice, bob, charlie], g, mia) <- first_post
+  pass(days 1)
+
+  rb <- submit bob do
+    create GroupMembershipRequest
+      with
+        groupId = "troll-bot"
+        member = alice
+        newMember = bob
+
+  (g, mib :: [mia]) <- submit alice do
+    exercise rb Onboard with
+      groupCid = g
+      messageIndexCids = [mia]
+
+  (_, mib) <- submit bob do
+    exercise g Post_Message with
+      poster = bob
+      micid = mib
+      id = "1"
+      text = "Hey Alice!"
+
+  return (parties, g, [mib, mia])
+
+second_post = scenario do
+  s@(parties@[alice, bob, charlie], g, [mib, mia]) <- onboard_bob
+  pass(minutes 3)
+
+  (_, mia) <- submit alice do
+    exercise g Post_Message with
+      poster = alice
+      micid = mia
+      id = "2"
+      text = "Hey Bob, I'm good and you?"
+
+  return (parties, g, [mib, mia])
+
+onboard_charlie = scenario do
+  s@(parties@[alice, bob, charlie], g, [mib, mia]) <- second_post
+  pass (days 1)
+
+  rc <- submit charlie do
+    create GroupMembershipRequest
+      with
+        groupId = "troll-bot"
+        member = alice
+        newMember = charlie
+
+  (g, [mic, mia, mib]) <- submit alice do
+    exercise rc Onboard with
+      groupCid = g
+      messageIndexCids = [mib, mia]
+
+  return (parties, g, [mic, mib, mia])
+
+quit_bob = scenario do
+  s@(parties@[alice, bob, charlie], g, [mic, mib, mia]) <- onboard_charlie
+  pass (seconds 10)
+
+  (g, [mia, mib, mic]) <- submit bob do
+    mis <- T.mapA fetch [mic, mib, mia]
+    let x = traceId mis
+    (_, mib) <- exercise g Post_Message with
+      poster = bob
+      micid = mib
+      id = "2"
+      text = "Ugh, not that guy, why did you let him in?"
+    exercise g LeaveGroup with
+      messageIndexCids = [mic, mib, mia]
+      member = bob
+
+  return (parties, g, [mic, mib, mia])
+
+rejoin_requit_bob = scenario do
+  s@(parties@[alice, bob, charlie], g, [mic, mib, mia]) <- quit_bob
+  pass (seconds 10)
+
+  (_, mic) <- submit charlie do
+    exercise g Post_Message with
+      poster = charlie
+      micid = mic
+      id = "1"
+      text = "What's his problem?!"
+
+  rb <- submit bob do
+    create GroupMembershipRequest
+      with
+        groupId = "troll-bot"
+        member = alice
+        newMember = bob
+
+  pass (seconds 10)
+  (g, [mia, mib, mic]) <- submit alice do
+    exercise rb Onboard with
+      groupCid = g
+      messageIndexCids = [mic, mib, mia]
+
+  (g, [mia, mib, mic]) <- submit bob do
+    (_, mib) <- exercise g Post_Message with
+      poster = bob
+      micid = mib
+      id = "3"
+      text = "Alice, come on, let's start a new group without Charlie!"
+    exercise g LeaveGroup with
+      member = bob
+      messageIndexCids = [mic, mib, mia]
+
+  return (parties, g, [mic, mib, mia])
+
+quit_alice = scenario do
+  s@(parties@[alice, bob, charlie], g, [mic, mib, mia]) <- rejoin_requit_bob
+  pass (seconds 10)
+
+
+  (g, [mia, mib, mic]) <- submit alice do
+    (_, mia) <- exercise g Post_Message with
+      poster = alice
+      micid = mia
+      id = "3"
+      text = "Without Bob, this group isn't worth running."
+    exercise g LeaveGroup with
+      member = alice
+      messageIndexCids = [mic, mib, mia]
+
+  return (parties, g, [mic, mib, mia])
+
+archive_charlie = scenario do
+  s@(parties@[alice, bob, charlie], g, [mic, mib, mia]) <- quit_alice
+  pass (seconds 10)
+
+  submit charlie do
+    exercise g ArchiveGroup with
+      messageIndexCids = [mic, mib, mia]

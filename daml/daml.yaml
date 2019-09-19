@@ -1,0 +1,12 @@
+sdk-version: 0.13.25
+name: daml
+source: daml
+scenario: GroupChat:archive_charlie
+parties:
+  - Alice
+  - Bob
+  - Charlie
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
