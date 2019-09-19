@@ -4,6 +4,7 @@ import java.security.MessageDigest
 
 import scala.collection.concurrent.TrieMap
 
+// FIXME(JM): This should be persisting to disk.
 object AttachmentStore {
   private val attachments = TrieMap.empty[String, Array[Byte]]
   attachments("test") = Array(1,2,3)
@@ -28,6 +29,9 @@ object AttachmentStore {
       .map(b => String.format("%02x", Byte.box(b)))
       .mkString("")
   }
+
+  def contains(hash: String): Boolean =
+    attachments.contains(hash)
 
 
 }

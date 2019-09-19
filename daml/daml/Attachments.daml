@@ -4,6 +4,7 @@ module Attachments where
 newtype URL = URL Text deriving (Eq, Show)
 newtype EncryptionKey = EncryptionKey Text deriving (Eq, Show)
 newtype AttachmentHash = AttachmentHash Text deriving (Eq, Show)
+newtype MimeType = MimeType Text deriving (Eq, Show)
 
 template Attachment
   with
@@ -23,6 +24,7 @@ template AttachmentProposal
   where
     -- TODO check invariant on locations
     signatory (map fst locations)
+    observer receivers
 
     controller receiver can
       Acknowledge: Either (ContractId AttachmentProposal) (ContractId Attachment)
@@ -43,7 +45,7 @@ template AttachmentProposal
                   receiver = next
                   receivers = remaining
                   locations = (receiver, newLocation) :: locations
-        
+
 main : Scenario ()
 main = do
   alice <- getParty "Alice"

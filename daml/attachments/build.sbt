@@ -35,11 +35,26 @@ lazy val `application` = project
      case x => MergeStrategy.first
     },
     assemblyJarName in assembly := "application.jar",
-    mainClass in assembly := Some("com.daml.attachments.AttachmentsMain"),
+    mainClass := Some("com.daml.attachments.AttachmentsMain"),
     libraryDependencies ++= codeGenDependencies ++ applicationDependencies,
   )
   .dependsOn(`scala-codegen`)
-// </doc-ref:modules>
+
+lazy val `file-client` = project
+  .in(file("client"))
+  .settings(
+    name := "file-client",
+    commonSettings,
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    },
+    assemblyJarName in assembly := "file-client.jar",
+    mainClass := Some("com.daml.files.client.FileClient"),
+    libraryDependencies ++= codeGenDependencies ++ applicationDependencies,
+  )
+  .dependsOn(`scala-codegen`, application)
+
 
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq(

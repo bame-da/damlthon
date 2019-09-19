@@ -1,0 +1,37 @@
+daml 1.2
+module File where  
+
+newtype URI = URI Text deriving (Eq, Show)
+
+-- | Encryption schema and key used to encrypt the file.
+data Encryption
+  = EncNone
+    -- ^ No encryption, the file is in plain text.
+  | EncAES256 Text
+    -- ^ 256-bit AES encryption, CBC mode, PKCS5 padding
+  deriving (Eq, Show)
+
+-- | A SHA256 hash
+newtype SHA256 = SHA256 Text
+  deriving (Eq, Show)
+
+-- | RFC 6838 mime type for the file. If file does not have known mime type
+-- use 'application/octet-stream'.
+newtype MimeType = MimeType Text deriving (Eq, Show)
+
+-- | A file hosted at given 'uri' by party 'owner'.
+-- Owner of the file is expected to provide access to the content
+-- at 'uri'. Observers who mirror the file are expected to create new 'File'
+-- contracts.
+template File
+  with
+    fileName      : Text
+    hash          : SHA256
+    encryption    : Encryption
+    mimeType      : MimeType
+    owner         : Party
+    observers     : [Party]
+    uri           : URI
+  where
+    signatory owner
+    observer observers

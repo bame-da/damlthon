@@ -70,7 +70,7 @@ object AttachmentsMain extends App with StrictLogging {
   private val clientF: Future[LedgerClient] =
     LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)
 
-  private val clientUtilF: Future[ClientUtil] =
+  val clientUtilF: Future[ClientUtil] =
     clientF.map(client => new ClientUtil(client, applicationId, 30.seconds, timeProvider))
 
   private val acknowledgeWorkflowId: WorkflowId = ClientUtil.workflowIdFromParty(party)
@@ -95,6 +95,56 @@ object AttachmentsMain extends App with StrictLogging {
           }
       }
     }
+
+  private val fileMirrorWorkflowId: WorkflowId = ClientUtil.workflowIdFromParty(party)
+
+  val fileMirrorFlow: Future[Unit] = for {
+    clientUtil <- clientUtilF
+    _ <- UnmirroredFiles(party, LedgerOffset().withBoundary(LedgerBoundary.LEDGER_BEGIN), clientUtil, amat)
+        .files
+        .runForeach { contract: Contract[model.File.File] =>
+          val file = contract.value
+          val hash = file.hash.unpack
+          if (file.owner == party) {
+            logger.info(s"ignoring since we're the owner")
+          } else {
+            logger.info(s"New file $hash, trying to mirror it from party ${file.owner}...")
+            AttachmentsClient.downloadAttachment(file.uri.unpack) match {
+              case Left(err) =>
+                // FIXME(JM): We need to retry again at a later time!
+                logger.error(s"Failed to fetch data when trying to mirror ${file.hash.unpack}")
+              case Right(data) =>
+                if (AttachmentStore.attachmentHash(data) != hash) {
+                  logger.warn(s"File $hash hosted by ${file.owner} is corrupted, refusing to mirror!")
+                } else {
+                  logger.info("Successfully fetched data, creating the File...")
+                  AttachmentStore.insert(data)
+
+                  val observers = contract.value.observers.toSet
+                  val createCmd =
+                    contract.value.copy(
+                      owner = party,
+                      observers = (observers - party + contract.value.owner).toList,
+                      uri = model.File.URI(AttachmentsServlet.attachmentUrl(serverPort, hash))
+                    ).create
+
+                  clientUtil.submitCommand(
+                    party,
+                    fileMirrorWorkflowId,
+                    createCmd
+                  ) onComplete {
+                    case Success(_) =>
+                      logger.info(s"$hash successfully mirrored!")
+
+                    case Failure(e) =>
+                      // FIXME(JM): We should retry creating this.
+                      logger.error(s"Failed to acknowledge: $e")
+                  }
+                }
+            }
+          }
+        }(amat)
+  }  yield ()
 
   val acknowledgeFlow: Future[Unit] = for {
     clientUtil <- clientUtilF
@@ -174,5 +224,10 @@ object AttachmentsMain extends App with StrictLogging {
   }
   serverThread.start()
 
-  acknowledgeFlow.foreach(_ => shutdown())
+  Future.firstCompletedOf(
+    List(
+      acknowledgeFlow,
+      fileMirrorFlow
+    )
+  ).foreach(_ => shutdown())
 }
