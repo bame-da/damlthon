@@ -1,0 +1,17 @@
+sdk-version: 0.13.25
+name: attachments
+source: ../daml
+scenario: Attachments:main
+parties:
+  - Alice
+  - Bob
+  - Charlie
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+codegen:
+  scala:
+    package-prefix: com.daml.attachments.model
+    output-directory: scala-codegen/src/main/scala
+    verbosity: 2

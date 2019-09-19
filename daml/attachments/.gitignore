@@ -1,0 +1,4 @@
+**/target
+.daml
+.idea
+scala-codegen
