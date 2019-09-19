@@ -1,0 +1,80 @@
+daml 1.2
+module Attachments where
+
+newtype URL = URL Text deriving (Eq, Show)
+newtype EncryptionKey = EncryptionKey Text deriving (Eq, Show)
+newtype AttachmentHash = AttachmentHash Text deriving (Eq, Show)
+
+template Attachment
+  with
+    hash          : AttachmentHash
+    encryptionKey : EncryptionKey
+    locations     : [(Party, URL)]
+  where
+    signatory (map fst locations)
+
+template AttachmentProposal 
+  with
+    receiver      : Party          -- The next one to acknowledge
+    receivers     : [Party]        -- The remaining parties that need to acknowledge
+    encryptionKey : EncryptionKey  -- The encryption key, with which the attachment is encrypted with
+    hash          : AttachmentHash
+    locations     : [(Party, URL)] -- Locations of the attachments
+  where
+    -- TODO check invariant on locations
+    signatory (map fst locations)
+
+    controller receiver can
+      Acknowledge: Either (ContractId AttachmentProposal) (ContractId Attachment)
+        with
+          newLocation : URL
+        do
+          case receivers of
+            [] ->
+              Right <$>
+                create Attachment with
+                  hash = hash
+                  encryptionKey = encryptionKey
+                  locations = (receiver, newLocation) :: locations
+
+            (next :: remaining) -> 
+              Left <$>
+                create this with
+                  receiver = next
+                  receivers = remaining
+                  locations = (receiver, newLocation) :: locations
+        
+
+
+main : Scenario ()
+main = do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  charlie <- getParty "Charlie"
+
+  -- Alice proposes an attachment to Bob and Charlie
+  proposalId1 <- submit alice do
+    create AttachmentProposal with
+      receiver = bob
+      receivers = [charlie]
+      encryptionKey = EncryptionKey "dummy"
+      hash = AttachmentHash  "deadbeef"
+      locations = [(alice, URL "https://alice/deadbeef")]
+
+  -- Bob downloads the attachment and acknowledges
+  Left proposalId2 <- submit bob do
+    exercise proposalId1 Acknowledge with
+      newLocation = URL "https://bob/deadbeef"
+
+  -- Charlie does the same
+  Right attachmentId <- submit charlie do
+    exercise proposalId2 Acknowledge with
+      newLocation = URL "https://charlie/deadbeef"
+
+  -- Everyone can access the attachment
+  _ <- forA [alice, bob, charlie] $ \p ->
+    submit p $ do
+      attachment <- fetch attachmentId
+      assert (attachment.hash == AttachmentHash "deadbeef")
+
+  pure ()
