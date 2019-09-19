@@ -16,6 +16,14 @@ import DA.Next.Set as S
 import DA.Next.Map as M
 import DA.Traversable as T
 
+import Attachments
+
+data MessageAttachment
+  = MAPending (ContractId AttachmentProposal)
+  | MAConfirmed (ContractId Attachment)
+  | MANone
+    deriving (Eq, Show)
+
 -- | GID is a contract key for a `ChatGroup`. GID = Group ID
 data GID = GID with
   id : Text -- ^ A text identifier for the group
@@ -34,6 +42,7 @@ template Message
   with
     mid : MID -- ^ Identifier of the message
     postedAt : Time -- ^ Ledger Effective Time the message was posted
+    attachment : Optional AttachmentHash
     text : Text -- ^ Message Body
   where
     signatory mid.gid.members
@@ -70,6 +79,7 @@ template MessageIndex
         with
           id : Text
           text : Text
+          attachment : Optional AttachmentHash
         do
           -- Ensure uniqueness
           assertMsg "Message ID already exists"
@@ -81,6 +91,7 @@ template MessageIndex
               poster
               id
             postedAt = now
+            attachment
             text
           mi <- create this with
             messages = M.insert id msg messages
@@ -169,11 +180,29 @@ template ChatGroup
       with
         poster : Party
         micid : ContractId MessageIndex
+        messageAttachment : MessageAttachment
         id : Text
         text : Text
       controller poster
       do
-        exercise micid MI_Message with ..
+        attachment <- case messageAttachment of
+          MAPending apcid -> do
+            ap <- fetch apcid
+            assertMsg "Poster hasn't signed attachment"
+              (poster `elem` signatory ap)
+            assertMsg "Receivers don't match members"
+              (S.fromList ap.receivers `S.difference` gid.members == S.empty)
+            return $ Some ap.hash
+          MAConfirmed acid -> do
+            a <- fetch acid
+            assertMsg "Poster hasn't signed attachment"
+              (poster `elem` signatory a)
+            assertMsg "Locations don't match members"
+              (S.fromList (map fst a.locations) `S.difference` gid.members == S.empty)
+            return $ Some a.hash
+          MANone -> return None
+
+        exercise micid MI_Message with .. 
 
     -- Members can leave at any time using this choice. Note that this will
     -- fail for the last member. They have to call `ArchiveGroup` instead.
@@ -270,6 +299,7 @@ first_post = scenario do
       poster = alice
       micid = mia
       id = "1"
+      messageAttachment = MANone
       text = "first post"
 
   return (parties, g, mia)
@@ -295,6 +325,7 @@ onboard_bob = scenario do
       poster = bob
       micid = mib
       id = "1"
+      messageAttachment = MANone
       text = "Hey Alice!"
 
   return (parties, g, [mib, mia])
@@ -308,6 +339,7 @@ second_post = scenario do
       poster = alice
       micid = mia
       id = "2"
+      messageAttachment = MANone
       text = "Hey Bob, I'm good and you?"
 
   return (parties, g, [mib, mia])
@@ -330,8 +362,31 @@ onboard_charlie = scenario do
 
   return (parties, g, [mic, mib, mia])
 
-quit_bob = scenario do
+attach_file = scenario do
   s@(parties@[alice, bob, charlie], g, [mic, mib, mia]) <- onboard_charlie
+  pass (seconds 10)
+
+    -- Alice proposes an attachment to Bob and Charlie
+  proposalId1 <- submit alice do
+    create AttachmentProposal with
+      receiver = bob
+      receivers = [charlie]
+      encryptionKey = EncryptionKey "dummy"
+      hash = AttachmentHash  "deadbeef"
+      locations = [(alice, URL "https://alice/deadbeef")]
+
+  (_, mia) <- submit alice do
+    exercise g Post_Message with
+      poster = alice
+      micid = mia
+      id = "2.5"
+      messageAttachment = MAPending proposalId1
+      text = "Check out this dead beef!"
+
+  return (parties, g, [mic, mib, mia])
+
+quit_bob = scenario do
+  s@(parties@[alice, bob, charlie], g, [mic, mib, mia]) <- attach_file
   pass (seconds 10)
 
   (g, [mia, mib, mic]) <- submit bob do
@@ -341,6 +396,7 @@ quit_bob = scenario do
       poster = bob
       micid = mib
       id = "2"
+      messageAttachment = MANone
       text = "Ugh, not that guy, why did you let him in?"
     exercise g LeaveGroup with
       messageIndexCids = [mic, mib, mia]
@@ -357,6 +413,7 @@ rejoin_requit_bob = scenario do
       poster = charlie
       micid = mic
       id = "1"
+      messageAttachment = MANone
       text = "What's his problem?!"
 
   rb <- submit bob do
@@ -377,6 +434,7 @@ rejoin_requit_bob = scenario do
       poster = bob
       micid = mib
       id = "3"
+      messageAttachment = MANone
       text = "Alice, come on, let's start a new group without Charlie!"
     exercise g LeaveGroup with
       member = bob
@@ -394,6 +452,7 @@ quit_alice = scenario do
       poster = alice
       micid = mia
       id = "3"
+      messageAttachment = MANone
       text = "Without Bob, this group isn't worth running."
     exercise g LeaveGroup with
       member = alice
