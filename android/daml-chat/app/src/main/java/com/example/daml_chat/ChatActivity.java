@@ -33,7 +33,7 @@ public class ChatActivity extends AppCompatActivity {
         Intent i = getIntent();
         parentChat = (Chat)i.getSerializableExtra(getString(R.string.extra_chat));
 
-        MessageService.getMessagesFromChat(getApplicationContext(), adapter, parentChat);
+        new EventAdapter(getApplicationContext(), adapter, parentChat);
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);

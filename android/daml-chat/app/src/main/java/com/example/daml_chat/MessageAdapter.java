@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 import com.example.daml_chat.core.Globals;
 import com.example.daml_chat.models.Message;
 import com.example.daml_chat.models.Party;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 
@@ -53,8 +54,14 @@ public class MessageAdapter extends ArrayAdapter<Message> {
         return messageView;
     }
 
+    public void addAll(List<Message> messages) {
+        this.messages.clear();
+        this.messages.addAll(messages);
+        context.runOnUiThread(this::notifyDataSetChanged);
+    }
+
     public void add(Message message) {
         this.messages.add(message);
-        notifyDataSetChanged();
+        context.runOnUiThread(this::notifyDataSetChanged);
     }
 }

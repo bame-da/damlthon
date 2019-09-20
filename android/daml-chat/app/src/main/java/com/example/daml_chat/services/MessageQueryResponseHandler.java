@@ -27,6 +27,8 @@ public class MessageQueryResponseHandler  extends AsyncHttpResponseHandler {
     public MessageQueryResponseHandler(MessageAdapter adapter, Chat parentChat) {
         this.adapter = adapter;
         this.parentChat = parentChat;
+        setUsePoolThread(true);
+        setUseSynchronousMode(false);
     }
 
     @Override
@@ -55,15 +57,13 @@ public class MessageQueryResponseHandler  extends AsyncHttpResponseHandler {
                     Instant postedAt = Instant.parse(argument.getString("postedAt"));
                     Party poster = new Party(mid.getString("poster"));
 
-                    messages.add(new Message(parentChat, postedAt, text, poster));
+                    messages.add(new Message(parentChat, postedAt, text, poster, null));
 
                 }
             }
 
             messages.sort(new MessageDateSorter());
-            for (Message newMessage: messages ) {
-                adapter.add(newMessage);
-            }
+            adapter.addAll(messages);
 
         } catch (JSONException e) {
             e.printStackTrace();
