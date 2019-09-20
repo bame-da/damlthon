@@ -265,6 +265,20 @@ template GroupSetup
             pastMembers = S.empty
           return (g, mi)
 
+template GroupInvite
+  with
+    groupId : Text
+    member : Party
+    newMember : Party
+  where
+    signatory member
+
+    controller newMember can
+      AcceptInvite
+        : ContractId GroupMembershipRequest
+        do
+          create GroupMembershipRequest with ..
+
 setup_chat = scenario do
   parties@[alice, bob, charlie] <- A.mapA getParty ["Alice", "Bob", "Charlie"]
   passToDate (date 2019 Jul 01)
