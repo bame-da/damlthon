@@ -34,7 +34,7 @@ case class Setup(applicationId: ApplicationId) {
   val aesf = new AkkaExecutionSequencerPool("clientPool")(asys)
   val ec: ExecutionContext = asys.dispatcher
 
-  val timeProvider = TimeProvider.Constant(Instant.EPOCH)
+  val timeProvider = TimeProvider.UTC
   val clientConfig = LedgerClientConfiguration(
     applicationId = ApplicationId.unwrap(applicationId),
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
