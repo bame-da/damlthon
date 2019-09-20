@@ -6,7 +6,6 @@ import com.example.daml_chat.MessageAdapter;
 import com.example.daml_chat.core.Globals;
 import com.example.daml_chat.http.HttpUtils;
 import com.example.daml_chat.models.Chat;
-import com.example.daml_chat.models.Message;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -57,7 +56,7 @@ public class MessageService {
             jsonBody.put("argument", jsonArgument);
 
             StringEntity entity = new StringEntity(jsonBody.toString());
-            HttpUtils.post(context,"command/exercise", entity, new PostMessageResponseHandler());
+            HttpUtils.post(context,"command/exercise", entity, new PostMessageResponseHandler(parentChat));
         }
         catch (Exception e) {
 
