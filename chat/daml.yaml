@@ -1,5 +1,5 @@
 sdk-version: 0.13.25
-name: daml
+name: chat
 source: daml
 scenario: GroupChat:archive_charlie
 parties:
@@ -10,3 +10,4 @@ version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
+  - ../attachments/.daml/dist/attachments-0.0.1.dar

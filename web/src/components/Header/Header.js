@@ -27,6 +27,7 @@ function Header({ history }) {
 
   // local
   const [isFetching, setIsFetching] = useState(false);
+  const user = useUserState();
 
   return (
     <AppBar position="fixed" className={classes.appBar}>
@@ -63,6 +64,7 @@ function Header({ history }) {
           DAML Group Chat
         </Typography>
         <div className={classes.grow} />
+        {user.login}
         <IconButton
           color="inherit"
           aria-haspopup="true"

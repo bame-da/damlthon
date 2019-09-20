@@ -16,13 +16,7 @@ import DA.Next.Set as S
 import DA.Next.Map as M
 import DA.Traversable as T
 
-import Attachments
-
-data MessageAttachment
-  = MAPending (ContractId AttachmentProposal)
-  | MAConfirmed (ContractId Attachment)
-  | MANone
-    deriving (Eq, Show)
+import File
 
 -- | GID is a contract key for a `ChatGroup`. GID = Group ID
 data GID = GID with
@@ -42,7 +36,7 @@ template Message
   with
     mid : MID -- ^ Identifier of the message
     postedAt : Time -- ^ Ledger Effective Time the message was posted
-    attachment : Optional AttachmentHash
+    attachment : Optional SHA256
     text : Text -- ^ Message Body
   where
     signatory mid.gid.members
@@ -79,7 +73,7 @@ template MessageIndex
         with
           id : Text
           text : Text
-          attachment : Optional AttachmentHash
+          attachment : Optional SHA256
         do
           -- Ensure uniqueness
           assertMsg "Message ID already exists"
@@ -180,27 +174,20 @@ template ChatGroup
       with
         poster : Party
         micid : ContractId MessageIndex
-        messageAttachment : MessageAttachment
+        messageAttachment : Optional (ContractId File)
         id : Text
         text : Text
       controller poster
       do
         attachment <- case messageAttachment of
-          MAPending apcid -> do
-            ap <- fetch apcid
-            assertMsg "Poster hasn't signed attachment"
-              (poster `elem` signatory ap)
-            assertMsg "Receivers don't match members"
-              (S.fromList ap.receivers `S.difference` gid.members == S.empty)
-            return $ Some ap.hash
-          MAConfirmed acid -> do
-            a <- fetch acid
-            assertMsg "Poster hasn't signed attachment"
-              (poster `elem` signatory a)
-            assertMsg "Locations don't match members"
-              (S.fromList (map fst a.locations) `S.difference` gid.members == S.empty)
-            return $ Some a.hash
-          MANone -> return None
+          Some cid -> do
+            file <- fetch cid
+            assertMsg "Poster doesn't own file"
+              (poster == file.owner)
+            assertMsg "Observers don't include members"
+              (S.fromList file.observers `S.difference` gid.members == S.empty)
+            return $ Some file.hash
+          None -> return None
 
         exercise micid MI_Message with .. 
 
@@ -278,6 +265,20 @@ template GroupSetup
             pastMembers = S.empty
           return (g, mi)
 
+template GroupInvite
+  with
+    groupId : Text
+    member : Party
+    newMember : Party
+  where
+    signatory member
+
+    controller newMember can
+      AcceptInvite
+        : ContractId GroupMembershipRequest
+        do
+          create GroupMembershipRequest with ..
+
 setup_chat = scenario do
   parties@[alice, bob, charlie] <- A.mapA getParty ["Alice", "Bob", "Charlie"]
   passToDate (date 2019 Jul 01)
@@ -299,7 +300,7 @@ first_post = scenario do
       poster = alice
       micid = mia
       id = "1"
-      messageAttachment = MANone
+      messageAttachment = None
       text = "first post"
 
   return (parties, g, mia)
@@ -325,7 +326,7 @@ onboard_bob = scenario do
       poster = bob
       micid = mib
       id = "1"
-      messageAttachment = MANone
+      messageAttachment = None
       text = "Hey Alice!"
 
   return (parties, g, [mib, mia])
@@ -339,7 +340,7 @@ second_post = scenario do
       poster = alice
       micid = mia
       id = "2"
-      messageAttachment = MANone
+      messageAttachment = None
       text = "Hey Bob, I'm good and you?"
 
   return (parties, g, [mib, mia])
@@ -367,20 +368,22 @@ attach_file = scenario do
   pass (seconds 10)
 
     -- Alice proposes an attachment to Bob and Charlie
-  proposalId1 <- submit alice do
-    create AttachmentProposal with
-      receiver = bob
-      receivers = [charlie]
-      encryptionKey = EncryptionKey "dummy"
-      hash = AttachmentHash  "deadbeef"
-      locations = [(alice, URL "https://alice/deadbeef")]
+  file <- submit alice do
+    create File with
+      fileName = "Dead Meat"
+      hash = SHA256 "abc123"
+      encryption = EncNone
+      mimeType = MimeType "none"
+      owner = alice
+      observers = [alice, bob]
+      uri = URI "https://alice/deadbeef"
 
   (_, mia) <- submit alice do
     exercise g Post_Message with
       poster = alice
       micid = mia
       id = "2.5"
-      messageAttachment = MAPending proposalId1
+      messageAttachment = Some file
       text = "Check out this dead beef!"
 
   return (parties, g, [mic, mib, mia])
@@ -396,7 +399,7 @@ quit_bob = scenario do
       poster = bob
       micid = mib
       id = "2"
-      messageAttachment = MANone
+      messageAttachment = None
       text = "Ugh, not that guy, why did you let him in?"
     exercise g LeaveGroup with
       messageIndexCids = [mic, mib, mia]
@@ -413,7 +416,7 @@ rejoin_requit_bob = scenario do
       poster = charlie
       micid = mic
       id = "1"
-      messageAttachment = MANone
+      messageAttachment = None
       text = "What's his problem?!"
 
   rb <- submit bob do
@@ -434,7 +437,7 @@ rejoin_requit_bob = scenario do
       poster = bob
       micid = mib
       id = "3"
-      messageAttachment = MANone
+      messageAttachment = None
       text = "Alice, come on, let's start a new group without Charlie!"
     exercise g LeaveGroup with
       member = bob
@@ -452,7 +455,7 @@ quit_alice = scenario do
       poster = alice
       micid = mia
       id = "3"
-      messageAttachment = MANone
+      messageAttachment = None
       text = "Without Bob, this group isn't worth running."
     exercise g LeaveGroup with
       member = alice

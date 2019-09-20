@@ -31,7 +31,8 @@ lazy val `application` = project
     name := "application",
     commonSettings,
     assemblyMergeStrategy in assembly := {
-     case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+     case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
+     case "reference.conf" => MergeStrategy.concat
      case x => MergeStrategy.first
     },
     assemblyJarName in assembly := "application.jar",
@@ -46,7 +47,8 @@ lazy val `file-client` = project
     name := "file-client",
     commonSettings,
     assemblyMergeStrategy in assembly := {
-      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
+      case "reference.conf" => MergeStrategy.concat
       case x => MergeStrategy.first
     },
     assemblyJarName in assembly := "file-client.jar",
@@ -90,4 +92,4 @@ lazy val applicationDependencies = Seq(
   "ch.qos.logback"          % "logback-classic"    % "1.2.3",
   "com.daml.scala" %% "bindings-akka" % daSdkVersion,
 )
-// </doc-ref:dependencies>
+

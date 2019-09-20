@@ -69,7 +69,7 @@ function Sidebar({ location }) {
 
         <SidebarLink
           key="newgroup"
-          label="New Grop"
+          label="New Group"
           path="/app/newgroup"
           icon={(<Add />)}
           location={location}
