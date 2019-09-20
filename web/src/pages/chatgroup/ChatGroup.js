@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import uuidv4 from "uuid/v4";
-import { Grid, Table, TableHead, TableRow, TableCell, TableBody, TextField, Button } from "@material-ui/core";
-import { AttachFile } from "@material-ui/icons";
+import { Grid, Table, Modal, TableRow, TableCell, TableBody, TextField, Button } from "@material-ui/core";
+import { Add, AttachFile } from "@material-ui/icons";
 import ReactJson from "react-json-view";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import { useLedgerState, useLedgerDispatch, sendCommand, fetchContracts } from "../../context/LedgerContext";
@@ -14,11 +14,14 @@ export default function ChatGroup(props) {
   const ledger = useLedgerState();
   const dispatch = useLedgerDispatch();
   const [isFetching, setIsFetching] = useState(false);
+  
+  const [inviteOpen, setInviteOpen] = React.useState(false);
 
   const groupName = props.match.params.groupName;
   const groupContract = ledger.contracts.find(c => c.templateId.entityName === "ChatGroup" && c.argument.gid.id === groupName);
 
   var [messageValue, setMessageValue] = useState("")
+  var [newMemberValue, setNewMemberValue] = useState("")
 
   const sendMessage = async () => {
     const templateId = { moduleName: "GroupChat", entityName: "ChatGroup" };
@@ -30,6 +33,14 @@ export default function ChatGroup(props) {
     const meta = {} // { ledgerEffectiveTime: 0 }; // Required if sandbox runs with static time
     const command = { templateId, contractId, choice, argument, meta };
     await sendCommand(dispatch, user.token, "exercise", command, () => console.log("Command is sending"), () => console.log("Error occurred"));
+  }
+
+  const sendInvite = async () => {
+    const templateId = { moduleName: "GroupChat", entityName: "GroupInvite" };
+    const argument = { groupId: groupName, member: user.login, newMember: newMemberValue};
+    const meta = {} // { ledgerEffectiveTime: 0 }; // Required if sandbox runs with static time
+    const command = { templateId, argument, meta };
+    await sendCommand(dispatch, user.token, "create", command, () => console.log("Command is sending"), () => console.log("Error occurred"));
   }
 
   // compare message contracts on postedAt
@@ -51,7 +62,30 @@ export default function ChatGroup(props) {
     <>
       <PageTitle title={props.match.params.groupName}/>
       <Grid container spacing={4}>
-      <Grid container>Members: {(groupContract != null) ? Object.keys(groupContract.argument.gid.members.textMap).join(",") : ""}</Grid>
+      <Modal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+      >
+        <div className={classes.modal}>
+          <h2 id="modal-title">Invite new member to {groupName}</h2>
+          <TextField id="newmember"
+            value={newMemberValue}
+            placeholder="Alice"
+            onChange={e => setNewMemberValue(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                sendInvite()
+                setNewMemberValue("")
+                setInviteOpen(false)
+              }
+            }}
+            />
+        </div>
+      </Modal>
+      <Grid container>
+        Members: {(groupContract != null) ? Object.keys(groupContract.argument.gid.members.textMap).join(",") : ""}
+        <Button color="primary" onClick={() => setInviteOpen(true)}>{(<Add />)}</Button>
+      </Grid>
       <Grid item xs={12}>
         <Table className={classes.table} size="small">
           <TableBody>
