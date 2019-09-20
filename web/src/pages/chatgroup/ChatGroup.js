@@ -20,7 +20,7 @@ export default function ChatGroup(props) {
   const ledger = useLedgerState();
   const dispatch = useLedgerDispatch();
   const [isFetching, setIsFetching] = useState(false);
-  
+
   const [inviteOpen, setInviteOpen] = React.useState(false);
 
   const groupName = props.match.params.groupName;
@@ -141,7 +141,7 @@ export default function ChatGroup(props) {
               {ledger.contracts.filter(c => c.templateId.entityName === "Message" && c.argument.mid.gid.id === groupName).sort(compare).map((c, i) => (
 
 
-              <ListItem key="{i}">
+              <ListItem key={i}>
                 <ListItemText
                   primary={<Typography variant="caption">{c.argument.mid.poster}</Typography>}
                   secondary={
@@ -161,9 +161,9 @@ export default function ChatGroup(props) {
           onChange={e => setMessageValue(e.target.value)}
           onKeyDown={e => {
               if (e.key === "Enter") {
-                sendMessage()
                 setMessageValue("")
-                //fetchContracts(dispatch, user.token, setIsFetching, () => {})
+                sendMessage().then(
+                  () => { fetchContracts(dispatch, user.token, setIsFetching, () => {}) });
               }
             }
           }/>
