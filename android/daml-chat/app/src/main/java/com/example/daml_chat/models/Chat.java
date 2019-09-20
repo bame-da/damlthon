@@ -4,16 +4,17 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.Serializable;
+import java.util.List;
 
 public class Chat implements Serializable {
     public String contractId;
     public String name;
-    public Party[] members;
+    public List<Party> members;
     public String postContractId;
 
     public Chat() {}
 
-    public Chat(String contractId, String name, Party[] members) {
+    public Chat(String contractId, String name, List<Party> members) {
         this.contractId = contractId;
         this.name = name;
         this.members = members;

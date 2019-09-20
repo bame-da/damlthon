@@ -92,7 +92,7 @@ public class ChatQueryResponseHandler extends AsyncHttpResponseHandler {
             members.add(new Party(memberList.next()));
         }
 
-        Chat newChat = new Chat(contractId, chatName, members.toArray(new Party[0]));
+        Chat newChat = new Chat(contractId, chatName, members);
         return newChat;
     }
 

@@ -5,15 +5,16 @@ import android.os.Bundle;
 
 import com.example.daml_chat.models.Chat;
 import com.example.daml_chat.models.Message;
+import com.example.daml_chat.services.ChatService;
 import com.example.daml_chat.services.MessageService;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import android.view.Menu;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ListView;
-import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +39,9 @@ public class ChatActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        Toolbar toolbar = findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.);
         setSupportActionBar(toolbar);
+        getSupportActionBar().setTitle(parentChat.name);
 
         chatHistory = findViewById(R.id.chatHistory);
         chatHistory.setAdapter(adapter);
@@ -53,6 +55,20 @@ public class ChatActivity extends AppCompatActivity {
             MessageService.postMessage(getApplicationContext(), parentChat, message);
             newMessageTextEdit.getText().clear();
         }
+    }
+
+    public void leaveChat(View view) {
+        ChatService.LeaveChat(getApplicationContext(), parentChat);
+    }
+
+    public void addUser(View view) {
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
     }
 }
 

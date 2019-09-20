@@ -1,10 +1,17 @@
 <resources>
     <string name="app_name">DAML-Chat</string>
     <string name="action_settings">Settings</string>
+    <string name="action_leave_chat">Leave</string>
+    <string name="action_add_user">Add User</string>
     <string name="chat_avatar_content_description">Chat Avatar</string>
     <string name="extra_chat">EXTRA_CHAT_ID</string>
     <string name="send_button_image_description">Send</string>
     <string name="dev_example_message">Type a message</string>
+
+    <string name="btn_ok">Ok</string>
+    <string name="btn_cancel">Cancel</string>
+
+    <string name="dialog_chat_name">Chat Name</string>
 
     <string name="dev_placeholder_name">Name</string>
     <string name="dev_placeholder_message">Message</string>

@@ -8,7 +8,6 @@ import com.example.daml_chat.models.Chat;
 import com.example.daml_chat.models.Party;
 import com.example.daml_chat.services.ChatService;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -57,7 +56,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Chat selectedChat = adapter.getItem(position);
-                Toast.makeText(getApplicationContext(), selectedChat.name, Toast.LENGTH_SHORT).show();
 
                 Intent openChatIntent = new Intent(getBaseContext(), ChatActivity.class);
                 openChatIntent.putExtra(getString(R.string.extra_chat), selectedChat);
@@ -65,14 +63,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        FloatingActionButton fab = findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
+        FloatingActionButton addChatButton = findViewById(R.id.fab);
+        addChatButton.setOnClickListener(new CrateNewChatListener(this));
     }
 
     @Override
