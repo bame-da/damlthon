@@ -9,8 +9,7 @@ import { useStyles } from "./styles";
 import { useUserState } from "../../context/UserContext";
 import {useDropzone} from 'react-dropzone';
 import superagent from 'superagent';
-
-import { Card, CardActionArea, CardContent, CardMedia, Typography } from '@material-ui/core';
+import { Badge, Card, CardContent, CardMedia, Typography, Avatar, ListItemAvatar, Divider, List, ListItem, ListItemText } from '@material-ui/core';
 
 export default function ChatGroup(props) {
   const {getInputProps, getRootProps} = useDropzone({
@@ -93,82 +92,90 @@ export default function ChatGroup(props) {
   function embedAttachment(attachment) {
     console.log(attachment)
 
-    const file = ledger.contracts.find(c => c.templateId.entityName === "File" && c.argument.hash.unpack === attachment.unpack)
-
+    const files = ledger.contracts.filter(c => c.templateId.entityName === "File" && c.argument.hash.unpack === attachment.unpack)
+    const file = files[0];
     console.log(file)
 
     const url = `http://localhost:8080/decrypted/${file.argument.hash.unpack}?key=${file.argument.encryption.EncAES256.encKey}&iv=${file.argument.encryption.EncAES256.iv}&mimetype=${file.argument.mimeType.unpack}`
 
     if (file.argument.mimeType.unpack.startsWith("image"))
-      return (<a href={url}><img height="200" width="200" src={url}></img></a>)
+      return (<a href={url}>
+        <Badge className={classes.margin} color="primary" badgeContent={files.length}><img width="200" src={url}></img></Badge></a>)
     else
       return (<a href={url}><AttachFile /></a>)
   }
 
   // TODO loosing textfield focus on refresh
   return (
-    <>
+   <section className="container">
       <PageTitle title={props.match.params.groupName}/>
       <Grid container spacing={4}>
-      <Modal
-        open={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-      >
-        <div className={classes.modal}>
-          <h2 id="modal-title">Invite new member to {groupName}</h2>
-          <TextField id="newmember"
-            value={newMemberValue}
-            placeholder="Alice"
-            onChange={e => setNewMemberValue(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter") {
-                sendInvite()
-                setNewMemberValue("")
-                setInviteOpen(false)
-              }
-            }}
-            />
-        </div>
-      </Modal>
-      <Grid container>
-        Members: {(groupContract != null) ? Object.keys(groupContract.argument.gid.members.textMap).join(",") : ""}
-        <Button color="primary" onClick={() => setInviteOpen(true)}>{(<Add />)}</Button>
-      </Grid>
-      <Grid item xs={12}>
-        <Table className={classes.table} size="small">
-          <TableBody>
-            {ledger.contracts.filter(c => c.templateId.entityName === "Message" && c.argument.mid.gid.id === groupName).sort(compare).map((c, i) => (
-              <TableRow key={i} className={classes.tableRow}>
-                <TableCell className={[classes.tableCell, classes.cell2]}>{c.argument.mid.poster}</TableCell>
-                <TableCell className={[classes.tableCell, classes.cell3]}>{c.argument.text}</TableCell>
-                <TableCell className={[classes.tableCell, classes.cell1]}>{(c.argument.attachment != null) ? embedAttachment(c.argument.attachment) : "" }</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <Modal
+          open={inviteOpen}
+          onClose={() => setInviteOpen(false)}>
+          <div className={classes.modal}>
+            <h2 id="modal-title">Invite new member to {groupName}</h2>
+            <TextField id="newmember"
+              value={newMemberValue}
+              placeholder="Alice"
+              onChange={e => setNewMemberValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  sendInvite()
+                  setNewMemberValue("")
+                  setInviteOpen(false)
+                }
+              }}
+              />
+          </div>
+        </Modal>
+
+
+        <Grid container>
+          Members: {(groupContract != null) ? Object.keys(groupContract.argument.gid.members.textMap).join(",") : ""}
+          <Button color="primary" onClick={() => setInviteOpen(true)}>{(<Add />)}</Button>
         </Grid>
+
+        <List className={classes.root}>
+
+              {ledger.contracts.filter(c => c.templateId.entityName === "Message" && c.argument.mid.gid.id === groupName).sort(compare).map((c, i) => (
+
+
+              <ListItem key="{i}">
+                <ListItemText
+                  primary={<Typography variant="caption">{c.argument.mid.poster}</Typography>}
+                  secondary={
+                    <React.Fragment>
+                      <Typography variant="body1">{c.argument.text}</Typography>
+                      {(c.argument.attachment != null) ? embedAttachment(c.argument.attachment) : ""}
+                    </React.Fragment>
+                  }/>
+              </ListItem>
+              ))}
+
+        <ListItem>
+
+        <TextField id="message"
+          value={messageValue}
+          placeholder="Your message..."
+          onChange={e => setMessageValue(e.target.value)}
+          onKeyDown={e => {
+              if (e.key === "Enter") {
+                sendMessage()
+                setMessageValue("")
+                //fetchContracts(dispatch, user.token, setIsFetching, () => {})
+              }
+            }
+          }/>
+
+        <Button {...getRootProps({className: 'dropzone'})} color="primary">{(<AttachFile />)}</Button>
+        <input {...getInputProps()} />
+
+        { uploadResult ? <img src={uploadResult.plain_url}></img> : "" }
+        </ListItem>
+
+        </List>
       </Grid>
-      <Grid container>
-      <TextField id="message"
-        value={messageValue}
-        placeholder="Your message.."
-        onChange={e => setMessageValue(e.target.value)}
-        onKeyDown={e => {
-        if (e.key === "Enter") {
-          sendMessage()
-          setMessageValue("")
-          //fetchContracts(dispatch, user.token, setIsFetching, () => {})
-        }
-      }
-    }
-      />
-
-    <Button {...getRootProps({className: 'dropzone'})} color="primary">{(<AttachFile />)}</Button>
-    <input {...getInputProps()} />
-
-    { uploadResult ? <img src={uploadResult.plain_url}></img> : "" }
-
-    </Grid>
-    </>
+  </section>
   );
 }
