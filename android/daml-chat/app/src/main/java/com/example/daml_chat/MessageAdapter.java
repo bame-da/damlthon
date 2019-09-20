@@ -16,13 +16,13 @@ import com.example.daml_chat.models.Party;
 
 import java.util.List;
 
-public class ChatHistoryAdapter extends ArrayAdapter<Message> {
+public class MessageAdapter extends ArrayAdapter<Message> {
     Party ownParty = Globals.getInstance().getOwnParty();
 
     Activity context;
     List<Message> messages;
 
-    public ChatHistoryAdapter(@NonNull Activity context, List<Message> messages) {
+    public MessageAdapter(@NonNull Activity context, List<Message> messages) {
         super(context, R.layout.content_chat, messages);
 
         this.context = context;

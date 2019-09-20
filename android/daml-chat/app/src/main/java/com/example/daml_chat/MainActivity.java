@@ -6,13 +6,13 @@ import android.os.Bundle;
 import com.example.daml_chat.core.Globals;
 import com.example.daml_chat.models.Chat;
 import com.example.daml_chat.models.Party;
+import com.example.daml_chat.services.ChatService;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import android.provider.Telephony;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -27,26 +27,18 @@ public class MainActivity extends AppCompatActivity {
     ListView listView;
     String[] listItem;
     String[] listItemSubtitles;
-    ChatOverviewListAdapter adapter;
+    ChatAdapter adapter;
     Globals g = Globals.getInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Init Data
-
-        final Party bernhard = new Party("Bernhard");
-        final Party jussi = new Party("Jussi");
-        final Party soren = new Party("Soren");
-        final Party darko = new Party("Darko");
-        g.setOwnParty(darko);
-
         List<Chat> chats = new ArrayList<>();
-        chats.add(new Chat("Awesome Chat1", new Party[]{darko, jussi}));
-        chats.add(new Chat("Uiiii", new Party[]{darko, bernhard}));
-        chats.add(new Chat("Serious Business", new Party[]{darko, soren}));
-        chats.add(new Chat("Group Chat1", new Party[]{darko, jussi, soren, bernhard}));
+        adapter = new ChatAdapter(this, chats);
 
+        ChatService.GetChatGroups(getApplicationContext(), adapter);
 
+        final Party alice = new Party("Alice");
+        g.setOwnParty(alice);
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -57,7 +49,6 @@ public class MainActivity extends AppCompatActivity {
         listItem = getResources().getStringArray(R.array.array_technology);
         listItemSubtitles = getResources().getStringArray(R.array.array_technology_subtitle);
 
-        adapter = new ChatOverviewListAdapter(this, chats);
 
         listView = findViewById(R.id.chatOverviews);
         listView.setAdapter(adapter);

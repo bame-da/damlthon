@@ -14,13 +14,13 @@ import com.example.daml_chat.models.Party;
 import java.util.List;
 import java.util.StringJoiner;
 
-public class ChatOverviewListAdapter extends ArrayAdapter<Chat> {
+public class ChatAdapter extends ArrayAdapter<Chat> {
     private final Party ownParty = Globals.getInstance().getOwnParty();
     private final Activity context;
     private final List<Chat> chats;
 
 
-    public ChatOverviewListAdapter(Activity context, List<Chat> chats) {
+    public ChatAdapter(Activity context, List<Chat> chats) {
         super(context, R.layout.chat_overview, chats);
 
 
@@ -48,5 +48,10 @@ public class ChatOverviewListAdapter extends ArrayAdapter<Chat> {
         subTitleText.setText(stringJoiner.toString());
 
         return rowView;
+    }
+
+    public void add(Chat newChat) {
+        this.chats.add(newChat);
+        notifyDataSetChanged();
     }
 }

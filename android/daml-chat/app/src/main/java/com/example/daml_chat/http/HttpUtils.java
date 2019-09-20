@@ -1,7 +1,6 @@
 package com.example.daml_chat.http;
 
 import android.content.Context;
-import android.content.Entity;
 
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.AsyncHttpResponseHandler;
