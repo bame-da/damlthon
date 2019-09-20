@@ -6,16 +6,21 @@ import Login from "../pages/login/Login";
 import { useUserState } from "../context/UserContext";
 import { useLedgerDispatch, fetchContracts } from "../context/LedgerContext";
 
+var timer = null;
+
 export default function App() {
   var { isAuthenticated } = useUserState();
   const [isFetching, setIsFetching] = useState(false);
   const dispatch = useLedgerDispatch();
   const user = useUserState();
-  // const timer = setInterval(() => {
-  //   if (isAuthenticated) {
-  //    fetchContracts(dispatch, user.token, setIsFetching, () => {})
-  //   }
-  // }, 5000);
+
+  if (timer == null) {
+    timer = setInterval(() => {
+      if (isAuthenticated) {
+       fetchContracts(dispatch, user.token, setIsFetching, () => {})
+      }
+    }, 5000);
+  }
 
   return (
     <HashRouter>
