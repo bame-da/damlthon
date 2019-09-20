@@ -34,4 +34,9 @@ object AttachmentStore {
     attachments.contains(hash)
 
 
+  def size: Int =
+    attachments.size
+
+  def bytes: Int =
+    attachments.values.map(_.size).sum
 }

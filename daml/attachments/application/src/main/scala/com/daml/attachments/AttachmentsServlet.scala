@@ -10,6 +10,7 @@ import com.digitalasset.ledger.client.binding.{Primitive => P}
 import org.json4s.{DefaultFormats, Formats}
 import org.scalatra._
 import org.scalatra.json.JacksonJsonSupport
+import org.scalatra.scalate.ScalateSupport
 import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
 import org.slf4j.LoggerFactory
 
@@ -34,11 +35,86 @@ object AttachmentsServlet {
   def urlEncode(s: String): String =
     URLEncoder.encode(s, StandardCharsets.UTF_8.toString).toLowerCase
 
+  def statsHtml(party: P.Party): String =
+    s"""
+      |  <html>
+      |    <head>
+      |    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+      |    </head>
+      |    <script>
+      |    var data = [];
+      |    var labels = [];
+      |    function randomColor() {
+      |      var red = Math.floor(Math.random() * 255);
+      |      var green = Math.floor(Math.random() * 255);
+      |      var blue = Math.floor(Math.random() * 255);
+      |      return 'rgb(' + red + ', ' + green + ', ' + blue + ')'
+      |    }
+      |    var chart = null;
+      |    var nPushed = 0;
+      |    function setup() {
+      |      var ctx = document.getElementById('chart').getContext('2d');
+      |      var d = new Date();
+      |      chart = new Chart(ctx, {
+      |           // The type of chart we want to create
+      |           type: 'line',
+      |           data: {
+      |               labels: [d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()],
+      |               datasets: [
+      |                 {
+      |                   label: 'Megabytes',
+      |                   //backgroundColor: randomColor(),
+      |                   borderColor: randomColor(),
+      |                   data: []
+      |                 },
+      |                 {
+      |                   label: 'Files',
+      |                   //backgroundColor: randomColor(),
+      |                   borderColor: randomColor(),
+      |                   data: []
+      |                 },
+      |               ]
+      |           },
+      |           options: {
+      |             animation: { duration: 0 }
+      |           }
+      |      } )
+      |      setInterval(update, 1000);
+      |    }
+      |    function update() {
+      |      var req = new XMLHttpRequest();
+      |      req.onreadystatechange = function() {
+      |        var d = new Date();
+      |        if (req.readyState === XMLHttpRequest.DONE && req.status === 200) {
+      |          var r = JSON.parse(req.responseText);
+      |          nPushed++;
+      |          var shift = nPushed > 25;
+      |          if (shift) {
+      |            chart.data.datasets[0].data.shift();
+      |            chart.data.datasets[1].data.shift();
+      |            chart.data.labels.shift();
+      |          }
+      |          chart.data.datasets[0].data.push(r.bytes / 1024 / 1024);
+      |          chart.data.datasets[1].data.push(r.size);
+      |          chart.update();
+      |          chart.data.labels.push(d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds())
+      |        }
+      |      }
+      |      req.open('GET', 'http://' + window.location.host + '/stats.json', true);
+      |      req.send();
+      |    }
+      |    </script>
+      |    <body onload="setup()">
+      |    <h2>Files served by $party</h2>
+      |    <canvas id="chart"></canvas>
+      |    </body>
+      |    </html>
+      |""".stripMargin
 }
 
-class AttachmentsServlet extends ScalatraServlet with FileUploadSupport with JacksonJsonSupport with FutureSupport {
+class AttachmentsServlet extends ScalatraServlet with FileUploadSupport with JacksonJsonSupport with FutureSupport with ScalateSupport {
   private val applicationId = ApplicationId("AttachmentsServlet")
-  private val setup = Setup(applicationId)
+  val setup = Setup(applicationId)
   implicit val executor: ExecutionContext = setup.ec
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -60,6 +136,18 @@ class AttachmentsServlet extends ScalatraServlet with FileUploadSupport with Jac
       case None =>
         BadRequest
     }
+  }
+
+  get("/stats.json") {
+    Ok(Map(
+      "size" -> AttachmentStore.size,
+      "bytes" -> AttachmentStore.bytes
+    ))
+  }
+
+  get("/stats") {
+    contentType="text/html"
+    AttachmentsServlet.statsHtml(setup.party)
   }
 
   get("/decrypted/:hash") {
@@ -156,7 +244,6 @@ class AttachmentsServlet extends ScalatraServlet with FileUploadSupport with Jac
   private def pack64(bytes: Array[Byte]): String = enc64.encodeToString(bytes)
   private def unpack64(s: String): Array[Byte] = dec64.decode(s)
 
-  // FIXME(JM): encode key and iv as base64!
   def encrypt(plainText: Array[Byte], key: Array[Byte], iv: Array[Byte]): Array[Byte] = {
     val ivSpec = new IvParameterSpec(iv)
     val skeySpec = new SecretKeySpec(key, "AES")

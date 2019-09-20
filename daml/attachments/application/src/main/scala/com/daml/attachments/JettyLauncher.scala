@@ -11,7 +11,9 @@ object JettyLauncher {
     val server = new Server(port)
     val context = new WebAppContext()
     context setContextPath "/"
-    context.setResourceBase("src/main/webapp")
+    val resourceBase = "/non-existing"
+    context.setResourceBase(resourceBase)
+
     context.addEventListener(new ScalatraListener)
     context.addServlet(classOf[DefaultServlet], "/")
 
