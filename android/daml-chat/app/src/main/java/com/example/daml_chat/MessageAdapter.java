@@ -6,13 +6,16 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.bumptech.glide.Glide;
 import com.example.daml_chat.core.Globals;
 import com.example.daml_chat.models.Message;
 import com.example.daml_chat.models.Party;
+import com.example.daml_chat.services.FileService;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -42,10 +45,17 @@ public class MessageAdapter extends ArrayAdapter<Message> {
                     null,
                     true);
 
-
         if (!isMyMessage) {
             TextView nameTag = messageView.findViewById(R.id.name);
             nameTag.setText(message.poster.name);
+        }
+
+        if(message.hash.isPresent()) {
+            ImageView imageView = messageView.findViewById(R.id.imageView);
+            if(FileService.getInstance().getURI(message.hash.get()).isPresent()) {
+                Glide.with(context).load(FileService.getInstance().getURI(message.hash.get()).get()).into(imageView);
+                imageView.setMaxHeight(336);
+            }
         }
 
         TextView messageTextView = messageView.findViewById(R.id.message_body);

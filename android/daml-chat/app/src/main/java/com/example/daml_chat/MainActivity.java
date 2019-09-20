@@ -7,6 +7,7 @@ import com.example.daml_chat.core.Globals;
 import com.example.daml_chat.models.Chat;
 import com.example.daml_chat.models.Party;
 import com.example.daml_chat.services.ChatService;
+import com.example.daml_chat.services.FileService;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -35,6 +36,9 @@ public class MainActivity extends AppCompatActivity {
 
         final Party alice = new Party("Alice");
         g.setOwnParty(alice);
+
+        // Start the FileService
+        FileService.getInstance();
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);

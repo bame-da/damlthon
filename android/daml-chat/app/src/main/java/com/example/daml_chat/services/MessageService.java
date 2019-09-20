@@ -49,7 +49,6 @@ public class MessageService {
             jsonArgument.put("id", UUID.randomUUID().toString());
             jsonArgument.put("text", message);
 
-
             jsonBody.put("templateId", jsonTemplateIdBody);
             jsonBody.put("contractId", parentChat.contractId);
             jsonBody.put("choice", "Post_Message");

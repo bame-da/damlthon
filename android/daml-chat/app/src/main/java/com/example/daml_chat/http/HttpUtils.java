@@ -11,13 +11,13 @@ import com.loopj.android.http.RequestParams;
 import cz.msebera.android.httpclient.HttpEntity;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.impl.DefaultJwtBuilder;
 
 public class HttpUtils {
     private static final String BASE_IP = "10.0.2.2";
     private static final int JSON_PORT = 7575;
     private static final int GRPC_PORT = 6865;
-    private static final String LEDGER_ID = "foobar";
+    private static final int FILE_PORT = 8082;
+    private static final String LEDGER_ID = "sandbox-8ed7e569-813c-414f-a64f-197cf9d9210b";
     private static final String PARTY = "Alice";
     private static final String JWT = Jwts.builder()
             .setPayload(String.format("{\"ledgerId\": \"%s\",\"applicationId\": \"Chat\",\"party\": \"%s\"}",LEDGER_ID, PARTY))
@@ -64,4 +64,7 @@ public class HttpUtils {
         return GRPC_PORT;
     }
 
+    public static String getAttachmentURL() {
+        return String.format("http://%s:%s/decrypted/", BASE_IP, FILE_PORT);
+    }
 }

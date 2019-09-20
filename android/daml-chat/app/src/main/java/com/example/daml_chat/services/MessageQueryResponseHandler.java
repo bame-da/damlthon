@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import cz.msebera.android.httpclient.Header;
 
@@ -57,7 +58,9 @@ public class MessageQueryResponseHandler  extends AsyncHttpResponseHandler {
                     Instant postedAt = Instant.parse(argument.getString("postedAt"));
                     Party poster = new Party(mid.getString("poster"));
 
-                    messages.add(new Message(parentChat, postedAt, text, poster, null));
+                    Optional<String> hash = Optional.ofNullable(argument.optJSONObject("attachment")).map(at -> at.optString("unpack"));
+
+                    messages.add(new Message(parentChat, postedAt, text, poster, hash));
 
                 }
             }
