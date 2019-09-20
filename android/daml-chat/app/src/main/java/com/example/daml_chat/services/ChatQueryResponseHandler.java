@@ -55,9 +55,7 @@ public class ChatQueryResponseHandler extends AsyncHttpResponseHandler {
             }
 
             updateChatWithIndexCid(chats, gidToIndexCid);
-            for (Chat chat : chats) {
-                adapter.add(chat);
-            }
+            adapter.addAll(chats);
         } catch (JSONException e) {
             e.printStackTrace();
         }

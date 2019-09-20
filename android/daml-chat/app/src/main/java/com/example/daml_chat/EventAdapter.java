@@ -9,6 +9,7 @@ import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.example.daml_chat.core.Globals;
 import com.example.daml_chat.http.HttpUtils;
 import com.example.daml_chat.models.Chat;
+import com.example.daml_chat.services.ChatService;
 import com.example.daml_chat.services.MessageService;
 
 import java.util.Collections;
@@ -30,4 +31,5 @@ public class EventAdapter {
                 });
         MessageService.getMessagesFromChat(context, messageAdapter, parentChat);
     }
+
 }

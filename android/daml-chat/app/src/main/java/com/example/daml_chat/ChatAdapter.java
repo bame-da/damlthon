@@ -50,8 +50,27 @@ public class ChatAdapter extends ArrayAdapter<Chat> {
         return rowView;
     }
 
+    public void addAll(List<Chat> chats) {
+        this.chats.clear();
+        this.chats.addAll(chats);
+        context.runOnUiThread(this::notifyDataSetChanged);
+    }
+
     public void add(Chat newChat) {
         this.chats.add(newChat);
-        notifyDataSetChanged();
+        context.runOnUiThread(this::notifyDataSetChanged);
+    }
+
+    public void updateChat(Chat chat) {
+        for (Chat oldChat: chats) {
+            if (!oldChat.GidAsJSON().toString().equals(chat.GidAsJSON().toString())) {
+                continue;
+            }
+
+            oldChat.postContractId = chat.postContractId;
+            oldChat.contractId = chat.contractId;
+            oldChat.members = chat.members;
+            oldChat.name = chat.name;
+        }
     }
 }

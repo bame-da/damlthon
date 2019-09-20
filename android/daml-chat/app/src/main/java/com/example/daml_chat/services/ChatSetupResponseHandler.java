@@ -3,15 +3,11 @@ package com.example.daml_chat.services;
 import android.content.Context;
 
 import com.example.daml_chat.ChatAdapter;
-import com.example.daml_chat.core.Globals;
 import com.example.daml_chat.http.HttpUtils;
 import com.loopj.android.http.AsyncHttpResponseHandler;
 
-import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.UUID;
 
 import cz.msebera.android.httpclient.Header;
 import cz.msebera.android.httpclient.entity.StringEntity;

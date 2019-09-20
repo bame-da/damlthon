@@ -70,4 +70,7 @@ public class ChatService {
 
         }
     }
+
+    public static void addUser(Context applicationContext, Chat parentChat) {
+    }
 }
