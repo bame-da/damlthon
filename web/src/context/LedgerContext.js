@@ -70,9 +70,10 @@ export async function sendCommand(dispatch, token, commandType, command, setIsSe
       const options = { method: "POST", headers, body: JSON.stringify(command) };
       console.log(options);
       const response = await fetch("/command/" + commandType, options);
-      await response.json();
+      const result = await response.json();
       dispatch({ type: "COMMAND_SENT" });
       setIsSending(false);
+      return result;
     }
     catch (error) {
       console.log(error)

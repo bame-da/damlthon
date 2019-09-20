@@ -6,7 +6,8 @@ import Header from "../Header/Header";
 import Sidebar from "../Sidebar/Sidebar";
 import { useLayoutState } from "../../context/LayoutContext";
 import Contracts from "../../pages/contracts/Contracts";
-import GroupChat from "../../pages/chat/ChatGroup";
+import GroupChat from "../../pages/chatgroup/ChatGroup";
+import NewGroup from "../../pages/newgroup/NewGroup";
 
 function Layout(props) {
   const classes = useStyles();
@@ -26,6 +27,7 @@ function Layout(props) {
             <Switch>
               <Route path="/app/contracts" component={Contracts} />
               <Route path="/app/chatgroup/:groupName" component={GroupChat} />
+              <Route path="/app/newgroup" component={NewGroup} />
             </Switch>
           </div>
         </>

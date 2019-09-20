@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import uuidv4 from "uuid/v4";
-import { Grid, Table, TableHead, TableRow, TableCell, TableBody, TextField } from "@material-ui/core";
+import { Grid, Table, TableHead, TableRow, TableCell, TableBody, TextField, Button } from "@material-ui/core";
+import { AttachFile } from "@material-ui/icons";
 import ReactJson from "react-json-view";
 import PageTitle from "../../components/PageTitle/PageTitle";
 import { useLedgerState, useLedgerDispatch, sendCommand, fetchContracts } from "../../context/LedgerContext";
@@ -15,15 +16,16 @@ export default function ChatGroup(props) {
   const [isFetching, setIsFetching] = useState(false);
 
   const groupName = props.match.params.groupName;
+  const groupContract = ledger.contracts.find(c => c.templateId.entityName === "ChatGroup" && c.argument.gid.id === groupName);
 
   var [messageValue, setMessageValue] = useState("")
 
   const sendMessage = async () => {
     const templateId = { moduleName: "GroupChat", entityName: "ChatGroup" };
-    const contractId = ledger.contracts.find(c => c.templateId.entityName === "ChatGroup" && c.argument.gid.id === groupName).contractId
+    const contractId = groupContract.contractId;
     const choice = "Post_Message";
     const msgId = uuidv4();
-    const indexContractId = ledger.contracts.find(c => c.templateId.entityName === "MessageIndex" && c.argument.gid.id === groupName).contractId
+    const indexContractId = ledger.contracts.find(c => c.templateId.entityName === "MessageIndex" && c.argument.gid.id === groupName && c.argument.poster === user.login).contractId
     const argument = { poster: user.login, micid: indexContractId, id: msgId, text: messageValue};
     const meta = {} // { ledgerEffectiveTime: 0 }; // Required if sandbox runs with static time
     const command = { templateId, contractId, choice, argument, meta };
@@ -49,28 +51,21 @@ export default function ChatGroup(props) {
     <>
       <PageTitle title={props.match.params.groupName}/>
       <Grid container spacing={4}>
+      <Grid container>Members: {(groupContract != null) ? Object.keys(groupContract.argument.gid.members.textMap).join(",") : ""}</Grid>
       <Grid item xs={12}>
         <Table className={classes.table} size="small">
-          <TableHead>
-            <TableRow className={classes.tableRow}>
-              <TableCell key="Time" className={classes.cell1}>Time</TableCell>
-              <TableCell key="Poster" className={classes.cell1}>Poster</TableCell>
-              <TableCell key="Message" className={classes.cell1}>Message</TableCell>
-            </TableRow>
-          </TableHead>
           <TableBody>
             {ledger.contracts.filter(c => c.templateId.entityName === "Message" && c.argument.mid.gid.id === groupName).sort(compare).map((c, i) => (
               <TableRow key={i} className={classes.tableRow}>
-                <TableCell className={[classes.tableCell, classes.cell1]}>{c.argument.postedAt}</TableCell>
-                <TableCell className={[classes.tableCell, classes.cell1]}>{c.argument.mid.poster}</TableCell>
-                <TableCell className={[classes.tableCell, classes.cell1]}>{c.argument.text}</TableCell>
+                <TableCell className={[classes.tableCell, classes.cell2]}>{c.argument.mid.poster}</TableCell>
+                <TableCell className={[classes.tableCell, classes.cell3]}>{c.argument.text}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
         </Grid>
       </Grid>
-      <Grid container spacing={4}>
+      <Grid container>
       <TextField id="message"
         value={messageValue}
         placeholder="Your message.."
@@ -84,6 +79,7 @@ export default function ChatGroup(props) {
       }
     }
       />
+    <Button color="primary">{(<AttachFile />)}</Button>
     </Grid>
     </>
   );
