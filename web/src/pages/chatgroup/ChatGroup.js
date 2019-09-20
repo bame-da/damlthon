@@ -72,8 +72,8 @@ export default function ChatGroup(props) {
     if (!err) {
       setUploadResult(res.body);
     }
-    /*console.log("err:", err);
-    console.log("res:", res);*/
+    console.log("err:", err);
+    console.log("res:", res);
   }
 
   function onDrop(files) {
@@ -88,6 +88,21 @@ export default function ChatGroup(props) {
         .field('filename', file.name)
         .end(uploadCallback);
     });
+  }
+
+  function embedAttachment(attachment) {
+    console.log(attachment)
+
+    const file = ledger.contracts.find(c => c.templateId.entityName === "File" && c.argument.hash.unpack === attachment.unpack)
+
+    console.log(file)
+
+    const url = `http://localhost:8080/decrypted/${file.argument.hash.unpack}?key=${file.argument.encryption.EncAES256.encKey}&iv=${file.argument.encryption.EncAES256.iv}&mimetype=${file.argument.mimeType.unpack}`
+
+    if (file.argument.mimeType.unpack.startsWith("image"))
+      return (<a href={url}><img height="200" width="200" src={url}></img></a>)
+    else
+      return (<a href={url}><AttachFile /></a>)
   }
 
   // TODO loosing textfield focus on refresh
@@ -126,6 +141,7 @@ export default function ChatGroup(props) {
               <TableRow key={i} className={classes.tableRow}>
                 <TableCell className={[classes.tableCell, classes.cell2]}>{c.argument.mid.poster}</TableCell>
                 <TableCell className={[classes.tableCell, classes.cell3]}>{c.argument.text}</TableCell>
+                <TableCell className={[classes.tableCell, classes.cell1]}>{(c.argument.attachment != null) ? embedAttachment(c.argument.attachment) : "" }</TableCell>
               </TableRow>
             ))}
           </TableBody>
