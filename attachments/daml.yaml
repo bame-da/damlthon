@@ -1,6 +1,6 @@
 sdk-version: 0.13.25
 name: attachments
-source: ../daml
+source: daml
 scenario: Attachments:main
 parties:
   - Alice
