@@ -10,9 +10,11 @@
     "jsonwebtoken": "^8.5.1",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
+    "react-dropzone": "^10.1.9",
     "react-json-view": "^1.19.1",
     "react-router-dom": "^5.0.1",
     "react-scripts": "3.0.1",
+    "superagent": "^5.1.0",
     "tinycolor2": "^1.4.1",
     "uuid": "^3.3.3"
   },

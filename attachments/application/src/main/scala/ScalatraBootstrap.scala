@@ -7,5 +7,7 @@ class ScalatraBootstrap extends LifeCycle {
 
   override def init(context: ServletContext) = {
     context mount (new AttachmentsServlet, "/*")
+
+    context.initParameters("org.scalatra.cors.allowCredentials") = "false"
   }
 }

@@ -8,6 +8,7 @@ import { useLayoutState } from "../../context/LayoutContext";
 import Contracts from "../../pages/contracts/Contracts";
 import GroupChat from "../../pages/chatgroup/ChatGroup";
 import NewGroup from "../../pages/newgroup/NewGroup";
+import Upload from "../../pages/upload/Upload";
 
 function Layout(props) {
   const classes = useStyles();
@@ -28,6 +29,7 @@ function Layout(props) {
               <Route path="/app/contracts" component={Contracts} />
               <Route path="/app/chatgroup/:groupName" component={GroupChat} />
               <Route path="/app/newgroup" component={NewGroup} />
+              <Route path="/app/upload" component={Upload} />
             </Switch>
           </div>
         </>

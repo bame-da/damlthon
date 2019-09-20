@@ -7,8 +7,15 @@ import PageTitle from "../../components/PageTitle/PageTitle";
 import { useLedgerState, useLedgerDispatch, sendCommand, fetchContracts } from "../../context/LedgerContext";
 import { useStyles } from "./styles";
 import { useUserState } from "../../context/UserContext";
+import {useDropzone} from 'react-dropzone';
+import superagent from 'superagent';
+
+import { Card, CardActionArea, CardContent, CardMedia, Typography } from '@material-ui/core';
 
 export default function ChatGroup(props) {
+  const {getInputProps, getRootProps} = useDropzone({
+    onDrop: onDrop
+  });
   const classes = useStyles();
   const user = useUserState();
   const ledger = useLedgerState();
@@ -29,9 +36,12 @@ export default function ChatGroup(props) {
     const choice = "Post_Message";
     const msgId = uuidv4();
     const indexContractId = ledger.contracts.find(c => c.templateId.entityName === "MessageIndex" && c.argument.gid.id === groupName && c.argument.poster === user.login).contractId
-    const argument = { poster: user.login, micid: indexContractId, id: msgId, text: messageValue};
+    const argument = { poster: user.login, micid: indexContractId, id: msgId, text: messageValue, messageAttachment:
+      uploadResult ? uploadResult.contract_id : null };
     const meta = {} // { ledgerEffectiveTime: 0 }; // Required if sandbox runs with static time
     const command = { templateId, contractId, choice, argument, meta };
+
+    setUploadResult(null);
     await sendCommand(dispatch, user.token, "exercise", command, () => console.log("Command is sending"), () => console.log("Error occurred"));
   }
 
@@ -55,6 +65,29 @@ export default function ChatGroup(props) {
       comparison = -1;
     }
     return comparison;
+  }
+
+  const [uploadResult, setUploadResult] = useState("")
+  function uploadCallback(err, res) {
+    if (!err) {
+      setUploadResult(res.body);
+    }
+    /*console.log("err:", err);
+    console.log("res:", res);*/
+  }
+
+  function onDrop(files) {
+    console.log(files);
+    files.forEach(file => {
+      console.log("uploading file: ", file.name);
+      superagent
+        .post('http://localhost:8080/uploadAndSubmit')
+        .field('attachment', file)
+        .field('observers',
+           (groupContract != null) ? Object.keys(groupContract.argument.gid.members.textMap).join(",") : "")
+        .field('filename', file.name)
+        .end(uploadCallback);
+    });
   }
 
   // TODO loosing textfield focus on refresh
@@ -113,7 +146,12 @@ export default function ChatGroup(props) {
       }
     }
       />
-    <Button color="primary">{(<AttachFile />)}</Button>
+
+    <Button {...getRootProps({className: 'dropzone'})} color="primary">{(<AttachFile />)}</Button>
+    <input {...getInputProps()} />
+
+    { uploadResult ? <img src={uploadResult.plain_url}></img> : "" }
+
     </Grid>
     </>
   );

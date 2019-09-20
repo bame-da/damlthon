@@ -112,7 +112,9 @@ object AttachmentsServlet {
       |""".stripMargin
 }
 
-class AttachmentsServlet extends ScalatraServlet with FileUploadSupport with JacksonJsonSupport with FutureSupport with ScalateSupport {
+class AttachmentsServlet extends ScalatraServlet with FileUploadSupport with JacksonJsonSupport with FutureSupport with ScalateSupport with CorsSupport {
+
+
   private val applicationId = ApplicationId("AttachmentsServlet")
   val setup = Setup(applicationId)
   implicit val executor: ExecutionContext = setup.ec
@@ -123,6 +125,10 @@ class AttachmentsServlet extends ScalatraServlet with FileUploadSupport with Jac
   configureMultipartHandling(MultipartConfig(maxFileSize = Some(10 * 1024 * 1024)))
   before() {
     contentType = formats("json")
+  }
+
+  options("/*"){
+    response.setHeader("Access-Control-Allow-Origin", request.getHeader("Origin"))
   }
 
   get("/attachments/:hash") {
